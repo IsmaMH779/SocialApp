@@ -106,7 +106,7 @@ public class HomeFragment extends Fragment {
     }
 
     class PostViewHolder extends RecyclerView.ViewHolder{
-        ImageView authorPhotoImageView, likeImageView, mediaImageView;
+        ImageView authorPhotoImageView, likeImageView, mediaImageView, deletePost;
         TextView authorTextView, contentTextView, numLikesTextView, timeTextView;
         PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -117,6 +117,7 @@ public class HomeFragment extends Fragment {
             contentTextView = itemView.findViewById(R.id.contentTextView);
             timeTextView = itemView.findViewById(R.id.timeTextView);
             numLikesTextView = itemView.findViewById(R.id.numLikesTextView);
+            deletePost = itemView.findViewById(R.id.deletePostIcon);
         }
     }
 
@@ -139,6 +140,22 @@ public class HomeFragment extends Fragment {
             }
             holder.authorTextView.setText(post.get("author").toString());
             holder.contentTextView.setText(post.get("content").toString());
+
+            // icono delete
+            if(!post.get("uid").equals(userId)) {
+                holder.deletePost.setVisibility(View.INVISIBLE);
+            } else {
+                holder.deletePost.setVisibility(View.VISIBLE);
+                // Establecer un OnClickListener para la imagen
+                holder.deletePost.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        // Mostrar el modal de confirmación
+                        mostrarConfirmacionEliminar(post);
+                    }
+                });
+            }
+
             // fecha y hora
             SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
             Calendar calendar = Calendar.getInstance();
@@ -154,7 +171,6 @@ public class HomeFragment extends Fragment {
             // Gestion de likes
             List<String> likes = (List<String>) post.get("likes");
             if(likes.contains(userId)) { holder.likeImageView.setImageResource(R.drawable.like_on);}
-
             else
                 holder.likeImageView.setImageResource(R.drawable.like_off);
                 holder.numLikesTextView.setText(String.valueOf(likes.size()));
