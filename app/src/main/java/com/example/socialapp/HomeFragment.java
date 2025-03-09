@@ -81,8 +81,38 @@ public class HomeFragment extends Fragment {
                     userId = result.getId();
                     displayNameTextView.setText(result.getName().toString());
                     emailTextView.setText(result.getEmail().toString());
-                    Glide.with(requireView()).load(R.drawable.user).into(photoImageView);
 
+                    // actualizar la foto de perfil en el drawer
+                    Databases databases = new Databases(client);
+                    try {
+                        databases.getDocument(
+                                getString(R.string.APPWRITE_DATABASE_ID),
+                                getString(R.string.APPWRITE_USER_COLLECTION_ID),
+                                userId,
+                                new CoroutineCallback<>((userInfo, error2) -> {
+                                    if (error2 != null) {
+                                        System.out.println("No se ha podido obtener la información del usuario");
+                                        error2.printStackTrace();
+                                        return;
+                                    }
+
+                                    // Obtener los datos del documento como un Map
+                                    Map<String, Object> userData = userInfo.getData();
+                                    String imageUrl = userData.get("profileImage") != null ? userData.get("profileImage").toString() : "";
+
+                                    // Actualizar la UI en el hilo principal
+                                    new Handler(Looper.getMainLooper()).post(() -> {
+                                        if (!imageUrl.isEmpty()) {
+                                            Glide.with(requireView()).load(imageUrl).into(photoImageView);
+                                        } else {
+                                            Glide.with(requireView()).load(R.drawable.user).into(photoImageView);
+                                        }
+                                    });
+                                })
+                        );
+                    } catch (AppwriteException e) {
+                        throw new RuntimeException(e);
+                    }
                     obtenerPosts(); // < – Pedir los posts tras obtener el usuario
                 });
             }));
@@ -119,6 +149,38 @@ public class HomeFragment extends Fragment {
             numLikesTextView = itemView.findViewById(R.id.numLikesTextView);
             deletePost = itemView.findViewById(R.id.deletePostIcon);
         }
+
+        // mostrar el modal de confirmacion
+        void mostrarConfirmacionEliminar(Map<String, Object> post, Client client, Runnable actualizarLista) {
+            new androidx.appcompat.app.AlertDialog.Builder(itemView.getContext())
+                    .setTitle("Eliminar post")
+                    .setMessage("¿Estás seguro de que quieres eliminar este post?")
+                    .setPositiveButton("Eliminar", (dialog, which) -> eliminarPost(post, client, actualizarLista))
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+        }
+
+        // Eliminar el post
+        void eliminarPost(Map<String, Object> post, Client client, Runnable actualizarLista) {
+            Databases databases = new Databases(client);
+            Handler mainHandler = new Handler(Looper.getMainLooper());
+
+            databases.deleteDocument(
+                    itemView.getContext().getString(R.string.APPWRITE_DATABASE_ID),
+                    itemView.getContext().getString(R.string.APPWRITE_POSTS_COLLECTION_ID),
+                    post.get("$id").toString(),
+                    new CoroutineCallback<>((result, error) -> {
+                        if (error != null) {
+                            error.printStackTrace();
+                            return;
+                        }
+                        mainHandler.post(() -> {
+                            actualizarLista.run();
+                            Snackbar.make(itemView, "Post eliminado", Snackbar.LENGTH_SHORT).show();
+                        });
+                    })
+            );
+        }
     }
 
     class PostsAdapter extends RecyclerView.Adapter<PostViewHolder> {
@@ -128,6 +190,7 @@ public class HomeFragment extends Fragment {
         public PostViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             return new PostViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.viewholder_post, parent, false));
         }
+
         @Override
         public void onBindViewHolder(@NonNull PostViewHolder holder, int position) {
             Map<String,Object> post = lista.getDocuments().get(position).getData();
@@ -146,14 +209,9 @@ public class HomeFragment extends Fragment {
                 holder.deletePost.setVisibility(View.INVISIBLE);
             } else {
                 holder.deletePost.setVisibility(View.VISIBLE);
-                // Establecer un OnClickListener para la imagen
-                holder.deletePost.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        // Mostrar el modal de confirmación
-                        mostrarConfirmacionEliminar(post);
-                    }
-                });
+                holder.deletePost.setOnClickListener(v ->
+                        holder.mostrarConfirmacionEliminar(post, client, () -> obtenerPosts())
+                );
             }
 
             // fecha y hora
@@ -224,6 +282,7 @@ public class HomeFragment extends Fragment {
                 holder.mediaImageView.setVisibility(View.GONE);
             }
         }
+
         @Override
         public int getItemCount() {
             return lista == null ? 0 : lista.getDocuments().size();

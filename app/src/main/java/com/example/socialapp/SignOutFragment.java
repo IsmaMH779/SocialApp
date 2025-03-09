@@ -19,7 +19,7 @@ import io.appwrite.coroutines.CoroutineCallback;
 import io.appwrite.services.Account;
 
 public class SignOutFragment extends Fragment {
-    NavController navController; // <-----------------
+    NavController navController;
 
     public SignOutFragment() {}
     @Override

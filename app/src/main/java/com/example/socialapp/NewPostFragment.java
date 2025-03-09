@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.appwrite.Client;
 import io.appwrite.coroutines.CoroutineCallback;
@@ -59,9 +60,7 @@ public class NewPostFragment extends Fragment {
     NavController navController;
     Client client;
     Account account;
-
     AppViewModel appViewModel;
-
     Uri mediaUri;
     String mediaTipo;
 
@@ -122,7 +121,11 @@ public class NewPostFragment extends Fragment {
                 }
 
                 if (mediaTipo == null) {
-                    guardarEnAppWrite(result, postContent, null);
+                    try {
+                        guardarEnAppWrite(result, postContent, null);
+                    } catch (AppwriteException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
                 else
                 {
@@ -161,7 +164,11 @@ public class NewPostFragment extends Fragment {
                                     getString(R.string.APPWRITE_PROJECT_ID) + "&mode=admin";
                     mainHandler.post(() ->
                     {
-                        guardarEnAppWrite(user, postText, downloadUrl);
+                        try {
+                            guardarEnAppWrite(user, postText, downloadUrl);
+                        } catch (AppwriteException e) {
+                            throw new RuntimeException(e);
+                        }
                     });
                 })
         );
@@ -203,51 +210,67 @@ public class NewPostFragment extends Fragment {
         return fileName;
     }
 
-    void guardarEnAppWrite(User<Map<String, Object>> user, String content, String mediaUrl)
-    {
-        Handler mainHandler = new Handler(Looper.getMainLooper());
 
-        // Crear instancia del servicio Databases
+    void guardarEnAppWrite(User<Map<String, Object>> user, String content, String mediaUrl) throws AppwriteException {
+        Handler mainHandler = new Handler(Looper.getMainLooper());
         Databases databases = new Databases(client);
 
-        // Datos del documento
+        // Datos iniciales del documento
         Map<String, Object> data = new HashMap<>();
         data.put("uid", user.getId().toString());
         data.put("author", user.getName().toString());
-        data.put("authorPhotoUrl", null);
-        data.put("content", content);
-        data.put("mediaType", mediaTipo);
-        data.put("mediaUrl", mediaUrl);
-        data.put("time", Calendar.getInstance().getTimeInMillis());
 
-        // Crear el documento
-        try {
-            databases.createDocument(
-                    getString(R.string.APPWRITE_DATABASE_ID),
-                    getString(R.string.APPWRITE_POSTS_COLLECTION_ID),
-                    "unique()", // Generar un ID único automáticamente
-                    data,
-                    new ArrayList<>(), // Permisos opcionales, como ["role:all"]
-                    new CoroutineCallback<>((result, error) -> {
-                        if (error != null) {
-                            Snackbar.make(requireView(), "Error: " +
-                                    error.toString(), Snackbar.LENGTH_LONG).show();
-                        }
-                        else
-                        {
-                            System.out.println("Post creado:" +
-                                    result.toString());
-                            mainHandler.post(() ->
-                            {
-                                navController.popBackStack();
-                            });
-                        }
-                    })
-            );
-        } catch (AppwriteException e) {
-            throw new RuntimeException(e);
-        }
+        // Obtener imagen del usuario
+        databases.getDocument(
+                getString(R.string.APPWRITE_DATABASE_ID),
+                getString(R.string.APPWRITE_USER_COLLECTION_ID),
+                user.getId(),
+                new CoroutineCallback<>((userInfo, error2) -> {
+                    if (error2 != null) {
+                        System.out.println("No se ha podido obtener la información del usuario");
+                        error2.printStackTrace();
+                        return;
+                    }
+
+                    // Obtener los datos del documento como un Map
+                    Map<String, Object> userData = userInfo.getData();
+                    String imageUrl = (userData.get("profileImage") != null) ? userData.get("profileImage").toString() : null;
+
+                    if (imageUrl != null && !imageUrl.isEmpty()) {
+                        data.put("authorPhotoUrl", imageUrl);
+                    }
+
+                    // 🔥 Ahora que tenemos la imagen, creamos el documento
+                    data.put("content", content);
+                    data.put("mediaType", mediaTipo);
+                    data.put("mediaUrl", mediaUrl);
+                    data.put("time", Calendar.getInstance().getTimeInMillis());
+
+                    // Crear el documento en Appwrite
+                    try {
+                        databases.createDocument(
+                                getString(R.string.APPWRITE_DATABASE_ID),
+                                getString(R.string.APPWRITE_POSTS_COLLECTION_ID),
+                                "unique()", // Generar un ID único automáticamente
+                                data,
+                                new ArrayList<>(), // Permisos opcionales
+                                new CoroutineCallback<>((result, error) -> {
+                                    if (error != null) {
+                                        Snackbar.make(requireView(), "Error: " +
+                                                error.toString(), Snackbar.LENGTH_LONG).show();
+                                    } else {
+                                        System.out.println("Post creado: " + result.toString());
+                                        mainHandler.post(() -> navController.popBackStack());
+                                    }
+                                })
+                        );
+                    } catch (AppwriteException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+        );
     }
+
 
 
     private final ActivityResultLauncher<String> galeria = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {

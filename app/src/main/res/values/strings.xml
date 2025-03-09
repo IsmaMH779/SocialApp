@@ -15,6 +15,7 @@
     <string name="APPWRITE_DATABASE_ID">"67af5304003825dfff21"</string>
     <string name="APPWRITE_POSTS_COLLECTION_ID">67af535b0037689e3da9</string>
     <string name="APPWRITE_STORAGE_BUCKET_ID">67b5f83c002bf5fd7686</string>
+    <string name="APPWRITE_USER_COLLECTION_ID">67cdc4d3002625ef64c4</string>
 
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
