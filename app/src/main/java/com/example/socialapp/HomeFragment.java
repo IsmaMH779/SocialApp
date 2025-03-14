@@ -300,7 +300,7 @@ public class HomeFragment extends Fragment {
             databases.listDocuments(
                     getString(R.string.APPWRITE_DATABASE_ID), // databaseId
                     getString(R.string.APPWRITE_POSTS_COLLECTION_ID), // collectionId
-                    Arrays.asList(Query.Companion.orderDesc("time"), Query.Companion.limit(50)), // queries (optional)
+                    Arrays.asList(Query.Companion.orderDesc("time"), Query.Companion.limit(50), Query.Companion.isNull("parent")), // queries (optional)
                     new CoroutineCallback<>((result, error) -> {
                         if (error != null) {
                             Snackbar.make(requireView(), "Error al obtener los posts: "

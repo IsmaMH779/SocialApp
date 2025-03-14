@@ -76,6 +76,7 @@ public class NewPostFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         appViewModel = new ViewModelProvider(requireActivity()).get(AppViewModel.class);
+        appViewModel.setMediaSeleccionado(null,null);
 
         navController = Navigation.findNavController(view);
         client = new Client(requireContext()).setProject(getString(R.string.APPWRITE_PROJECT_ID));
@@ -260,6 +261,7 @@ public class NewPostFragment extends Fragment {
                                                 error.toString(), Snackbar.LENGTH_LONG).show();
                                     } else {
                                         System.out.println("Post creado: " + result.toString());
+
                                         mainHandler.post(() -> navController.popBackStack());
                                     }
                                 })
