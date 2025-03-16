@@ -8,6 +8,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.os.Handler;
@@ -15,6 +16,7 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -58,6 +60,9 @@ public class HomeFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         appViewModel = new ViewModelProvider(requireActivity()).get(AppViewModel.class);
+        appViewModel.setEsComentario(false);
+        appViewModel.setParentUid(null);
+
         NavigationView navigationView = view.getRootView().findViewById(R.id.nav_view);
         View header = navigationView.getHeaderView(0);
 
@@ -100,12 +105,12 @@ public class HomeFragment extends Fragment {
                                     Map<String, Object> userData = userInfo.getData();
                                     String imageUrl = userData.get("profileImage") != null ? userData.get("profileImage").toString() : "";
 
-                                    // Actualizar la UI en el hilo principal
+                                    // Actualizar la UI
                                     new Handler(Looper.getMainLooper()).post(() -> {
                                         if (!imageUrl.isEmpty()) {
-                                            Glide.with(requireView()).load(imageUrl).into(photoImageView);
+                                            Glide.with(requireView()).load(imageUrl).circleCrop().into(photoImageView);
                                         } else {
-                                            Glide.with(requireView()).load(R.drawable.user).into(photoImageView);
+                                            Glide.with(requireView()).load(R.drawable.user).circleCrop().into(photoImageView);
                                         }
                                     });
                                 })
@@ -136,8 +141,10 @@ public class HomeFragment extends Fragment {
     }
 
     class PostViewHolder extends RecyclerView.ViewHolder{
-        ImageView authorPhotoImageView, likeImageView, mediaImageView, deletePost;
-        TextView authorTextView, contentTextView, numLikesTextView, timeTextView;
+        ImageView authorPhotoImageView, likeImageView, mediaImageView, deletePost, commentButton;
+        TextView authorTextView, contentTextView, numLikesTextView, timeTextView, commentCountTextView ;
+
+        RecyclerView commentsRecycler;
         PostViewHolder(@NonNull View itemView) {
             super(itemView);
             authorPhotoImageView = itemView.findViewById(R.id.authorPhotoImageView);
@@ -148,6 +155,9 @@ public class HomeFragment extends Fragment {
             timeTextView = itemView.findViewById(R.id.timeTextView);
             numLikesTextView = itemView.findViewById(R.id.numLikesTextView);
             deletePost = itemView.findViewById(R.id.deletePostIcon);
+            commentButton = itemView.findViewById(R.id.comentButton);
+            commentsRecycler = itemView.findViewById(R.id.commentsRecyclerView);
+            commentCountTextView = itemView.findViewById(R.id.commentCountTextView);
         }
 
         // mostrar el modal de confirmacion
@@ -185,6 +195,7 @@ public class HomeFragment extends Fragment {
 
     class PostsAdapter extends RecyclerView.Adapter<PostViewHolder> {
         DocumentList<Map<String,Object>> lista = null;
+        DocumentList<Map<String,Object>> listaComentarios = null;
         @NonNull
         @Override
         public PostViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -203,6 +214,22 @@ public class HomeFragment extends Fragment {
             }
             holder.authorTextView.setText(post.get("author").toString());
             holder.contentTextView.setText(post.get("content").toString());
+
+            // comments
+
+            holder.commentsRecycler.setLayoutManager(new LinearLayoutManager(holder.commentsRecycler.getContext()));
+            PostsAdapter adapterComentarios = new PostsAdapter();
+            holder.commentsRecycler.setAdapter(adapterComentarios);
+
+            obtenerComentarios((String) post.get("$id"), adapterComentarios, holder.commentCountTextView);
+
+            // comment button
+
+            holder.commentButton.setOnClickListener(v -> {
+                appViewModel.paraComentar(true, (String) post.get("$id"));
+                navController.navigate(R.id.newPostFragment);
+
+            });
 
             // icono delete
             if(!post.get("uid").equals(userId)) {
@@ -281,6 +308,8 @@ public class HomeFragment extends Fragment {
             } else {
                 holder.mediaImageView.setVisibility(View.GONE);
             }
+
+
         }
 
         @Override
@@ -291,6 +320,7 @@ public class HomeFragment extends Fragment {
             this.lista = lista;
             notifyDataSetChanged();
         }
+
     }
 
     void obtenerPosts() {
@@ -315,4 +345,32 @@ public class HomeFragment extends Fragment {
             throw new RuntimeException(e);
         }
     }
+
+    void obtenerComentarios(String id, PostsAdapter adapterComentarios, TextView commentCountTextView) {
+        Databases databases = new Databases(client);
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+
+        try {
+            databases.listDocuments(
+                    getString(R.string.APPWRITE_DATABASE_ID),
+                    getString(R.string.APPWRITE_POSTS_COLLECTION_ID),
+                    Arrays.asList(Query.Companion.orderDesc("time"), Query.Companion.equal("parent", id)),
+                    new CoroutineCallback<>((result, error) -> {
+                        if (error != null) {
+                            Snackbar.make(requireView(), "Error al obtener comentarios", Snackbar.LENGTH_LONG).show();
+                            return;
+                        }
+
+                        mainHandler.post(() -> {
+                            adapterComentarios.establecerLista(result);
+                            int numComentarios = result.getDocuments().size();
+                            commentCountTextView.setText(String.valueOf(numComentarios));
+                        });
+                    })
+            );
+        } catch (AppwriteException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }

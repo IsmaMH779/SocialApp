@@ -41,7 +41,7 @@ import io.appwrite.services.Databases;
 import io.appwrite.services.Storage;
 
 public class ProfileFragment extends Fragment {
-    private ImageView photoImageView;
+    private ImageView photoImageView, drawerProfileImage;
     private Button changePhotoButton;
     private TextView displayNameTextView, emailTextView;
     private NavController navController;
@@ -55,7 +55,7 @@ public class ProfileFragment extends Fragment {
             uri -> {
                 if (uri != null) {
                     // Mostrar la imagen seleccionada como previsualización
-                    Glide.with(requireView()).load(uri).into(photoImageView);
+                    Glide.with(requireView()).load(uri).circleCrop().into(photoImageView);
                     // Subir la imagen a Appwrite
                     uploadProfileImage(uri);
                 }
@@ -71,6 +71,7 @@ public class ProfileFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         navController = Navigation.findNavController(view);
+
         photoImageView = view.findViewById(R.id.photoImageView);
         changePhotoButton = view.findViewById(R.id.changePhotoButton);
         displayNameTextView = view.findViewById(R.id.displayNameTextView);
@@ -113,9 +114,10 @@ public class ProfileFragment extends Fragment {
                                 // Actualizar la UI en el hilo principal
                                 new Handler(Looper.getMainLooper()).post(() -> {
                                     if (!imageUrl.isEmpty()) {
-                                        Glide.with(requireView()).load(imageUrl).into(photoImageView);
+
+                                        Glide.with(requireView()).load(imageUrl).circleCrop().into(photoImageView);
                                     } else {
-                                        Glide.with(requireView()).load(R.drawable.user).into(photoImageView);
+                                        Glide.with(requireView()).load(R.drawable.user).circleCrop().into(photoImageView);
                                     }
                                 });
                             })
@@ -126,7 +128,7 @@ public class ProfileFragment extends Fragment {
 
 
                 new Handler(Looper.getMainLooper()).post(() ->
-                        Glide.with(requireView()).load(R.drawable.user).into(photoImageView)
+                        Glide.with(requireView()).load(R.drawable.user).circleCrop().into(photoImageView)
                 );
             }));
         } catch (AppwriteException e) {
@@ -200,7 +202,7 @@ public class ProfileFragment extends Fragment {
 
                         // Actualizar la UI con la nueva imagen
                         new Handler(Looper.getMainLooper()).post(() ->
-                                Glide.with(requireView()).load(imageUrl).into(photoImageView)
+                                Glide.with(requireView()).load(imageUrl).circleCrop().into(photoImageView)
                         );
                     })
             );

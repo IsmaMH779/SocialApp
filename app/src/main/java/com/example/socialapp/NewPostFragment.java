@@ -241,11 +241,19 @@ public class NewPostFragment extends Fragment {
                         data.put("authorPhotoUrl", imageUrl);
                     }
 
-                    // 🔥 Ahora que tenemos la imagen, creamos el documento
+                    // creamos el documento
                     data.put("content", content);
                     data.put("mediaType", mediaTipo);
                     data.put("mediaUrl", mediaUrl);
                     data.put("time", Calendar.getInstance().getTimeInMillis());
+
+                    // es un comentario?
+                    if (appViewModel.esComentario) {
+                        data.put("parent", appViewModel.parentUid);
+
+                        appViewModel.setParentUid(null);
+                        appViewModel.setEsComentario(false);
+                    }
 
                     // Crear el documento en Appwrite
                     try {
